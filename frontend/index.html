@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="mr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/assets/media_1791609554510.png" />
+    <!-- Disallow zooming completely for native app-level experience -->
+    <meta 
+      name="viewport" 
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" 
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#ea580c" />
+    
+    <title>आपला दादा तक्रार निवारण पोर्टल | मा. श्री. वैभव (दादा) पाटील</title>
+
+    <!-- Google Marathi Fonts: Noto Sans Devanagari & Mukta -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700;800&family=Noto+Sans+Devanagari:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+      /* Prevent mobile pull-to-refresh & pinch zoom */
+      html, body {
+        touch-action: pan-x pan-y;
+        overscroll-behavior-y: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+      }
+      input, textarea, select {
+        user-select: auto;
+        -webkit-user-select: auto;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 font-marathi antialiased selection:bg-orange-200">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
