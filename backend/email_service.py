@@ -1,4 +1,5 @@
 import smtplib
+import requests
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import datetime
@@ -110,9 +111,61 @@ def send_complaint_email(complaint_data: dict) -> dict:
     
     delivery_status = "SAVED_OUTBOX"
     error_message = None
-    
-    # Attempt real SMTP if configured
-    if settings.SMTP_USER and settings.SMTP_PASSWORD and settings.SMTP_HOST:
+
+    # 1. Option 1: Resend HTTP Email API (Runs over Port 443 HTTPS - Never blocked by Render!)
+    if settings.RESEND_API_KEY and settings.RESEND_API_KEY.strip():
+        try:
+            res = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {settings.RESEND_API_KEY.strip()}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "from": "आपला दादा जनसंपर्क कक्ष <onboarding@resend.dev>",
+                    "to": [recipient],
+                    "subject": subject,
+                    "html": body_html
+                },
+                timeout=12
+            )
+            if res.status_code in (200, 201):
+                delivery_status = "DELIVERED_RESEND"
+            else:
+                error_message = f"Resend API ({res.status_code}): {res.text}"
+                delivery_status = f"FAILED_RESEND: {error_message}"
+        except Exception as e:
+            error_message = f"Resend exception: {e}"
+            delivery_status = f"FAILED_RESEND: {error_message}"
+
+    # 2. Option 2: Brevo (Sendinblue) HTTP Email API (Runs over Port 443 HTTPS)
+    elif settings.BREVO_API_KEY and settings.BREVO_API_KEY.strip():
+        try:
+            res = requests.post(
+                "https://api.brevo.com/v3/smtp/email",
+                headers={
+                    "api-key": settings.BREVO_API_KEY.strip(),
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "sender": {"name": settings.SMTP_FROM_NAME, "email": settings.SMTP_FROM_EMAIL or recipient},
+                    "to": [{"email": recipient}],
+                    "subject": subject,
+                    "htmlContent": body_html
+                },
+                timeout=12
+            )
+            if res.status_code in (200, 201):
+                delivery_status = "DELIVERED_BREVO"
+            else:
+                error_message = f"Brevo API ({res.status_code}): {res.text}"
+                delivery_status = f"FAILED_BREVO: {error_message}"
+        except Exception as e:
+            error_message = f"Brevo exception: {e}"
+            delivery_status = f"FAILED_BREVO: {error_message}"
+
+    # 3. Option 3: Standard SMTP (Gmail / Custom SMTP server)
+    elif settings.SMTP_USER and settings.SMTP_PASSWORD and settings.SMTP_HOST:
         try:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
@@ -132,9 +185,12 @@ def send_complaint_email(complaint_data: dict) -> dict:
             delivery_status = "DELIVERED_SMTP"
         except Exception as e:
             error_message = str(e)
-            delivery_status = f"FAILED_SMTP: {error_message}"
+            if "101" in error_message or "unreachable" in error_message.lower():
+                delivery_status = "RENDER_FREE_FIREWALL: Render blocks outbound SMTP port 587. Add RESEND_API_KEY in Render to send via HTTPS."
+            else:
+                delivery_status = f"FAILED_SMTP: {error_message}"
     else:
-        delivery_status = "QUEUED_OUTBOX"
+        delivery_status = "SAVED_OUTBOX"
         
     # Log in database / Firebase Firestore
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

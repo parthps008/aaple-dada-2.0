@@ -267,8 +267,10 @@ log_test("SPA Deep Link (/admin) serves 200 HTML without 404", res.status_code =
 res = client.get("/works")
 log_test("SPA Deep Link (/works) serves 200 HTML without 404", res.status_code == 200 and "text/html" in res.headers.get("content-type", ""), f"Status: {res.status_code}")
 
-res = client.get("/assets/index-CsvEIx4Z.css")
-log_test("Static Asset CSS (/assets/...) loads with 200", res.status_code == 200, f"Status: {res.status_code}")
+css_files = [f for f in os.listdir(os.path.join("frontend", "dist", "assets")) if f.endswith(".css")]
+css_file = css_files[0] if css_files else "index.css"
+res = client.get(f"/assets/{css_file}")
+log_test(f"Static Asset CSS (/assets/{css_file}) loads with 200", res.status_code == 200, f"Status: {res.status_code}")
 
 res = client.get("/api/non_existent_endpoint")
 log_test("Non-existent API Route (/api/...) returns 404", res.status_code == 404, f"Status: {res.status_code}")

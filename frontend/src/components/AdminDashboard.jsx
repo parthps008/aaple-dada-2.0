@@ -3,7 +3,8 @@ import {
   fetchComplaintsApi, 
   updateComplaintStatusApi, 
   fetchStatsApi,
-  fetchSmtpLogsApi 
+  fetchSmtpLogsApi,
+  resendComplaintEmailApi
 } from "../api";
 import { 
   Shield, 
@@ -40,6 +41,7 @@ export default function AdminDashboard({ onOpenEmailPreview }) {
   const [updating, setUpdating] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [resendingId, setResendingId] = useState(null);
 
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
@@ -99,6 +101,23 @@ export default function AdminDashboard({ onOpenEmailPreview }) {
       alert("अपडेट करताना त्रुटी आली: " + err.message);
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleResendEmail = async (complaintId) => {
+    setResendingId(complaintId);
+    try {
+      const res = await resendComplaintEmailApi(complaintId);
+      if (res.success) {
+        alert("ईमेल यशस्वीरीत्या पाठवण्यात आला!");
+      } else {
+        alert("ईमेल पाठवण्याचा प्रयत्न झाला: " + (res.delivery?.status || "पूर्ण"));
+      }
+      loadData(false);
+    } catch (err) {
+      alert("ईमेल पाठवताना त्रुटी: " + err.message);
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -376,44 +395,77 @@ export default function AdminDashboard({ onOpenEmailPreview }) {
       ) : (
         /* SMTP Outbox Sub-Tab */
         <div className="space-y-4">
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-700 leading-relaxed">
-            <strong>SMTP ईमेल सूचना अहवाल:</strong> नवीन तक्रार दाखल होताच मा. वैभव दादांच्या जनसंपर्क कार्यालयास (sagareparth@gmail.com) पाठवलेल्या सर्व ईमेल सूचनांची नोंद येथे दिसते.
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 leading-relaxed space-y-1">
+            <div className="font-bold flex items-center gap-1.5 text-amber-950">
+              <Mail className="w-4 h-4 text-orange-600" />
+              <span>ईमेल सूचना व आउटबॉक्स अहवाल (sagareparth@gmail.com):</span>
+            </div>
+            <p className="text-[11px] text-amber-800">
+              नवीन तक्रार दाखल होताच दादांच्या कार्यालयास पाठवल्या जाणाऱ्या ईमेलची नोंद येथे होते.
+              <strong> टीप:</strong> Render मोफत सर्व्हरवर आऊटबाऊंड SMTP पोर्ट ५८७ ब्लॉक असतो (`Network is unreachable`). Render वर थेट ईमेल पाठवण्यासाठी Environment Variables मध्ये विनामूल्य <strong>RESEND_API_KEY</strong> जोडा.
+            </p>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs divide-y divide-slate-100">
             {smtpLogs.length === 0 ? (
               <div className="p-10 text-center text-slate-500 text-xs">कोणतेही ईमेल नोंदी उपलब्ध नाहीत.</div>
             ) : (
-              smtpLogs.map((log, idx) => (
-                <div key={idx} className="p-4 hover:bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-xs font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded">
-                        #{log.complaint_id}
-                      </span>
-                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                        {log.status}
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        {log.created_at}
-                      </span>
-                    </div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                      {log.subject}
-                    </h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      प्राप्तकर्ता: <strong>{log.recipient}</strong>
-                    </p>
-                  </div>
+              smtpLogs.map((log, idx) => {
+                const isDelivered = log.status?.includes("DELIVERED");
+                const isBlocked = log.status?.includes("RENDER") || log.status?.includes("unreachable") || log.status?.includes("101");
 
-                  <button
-                    onClick={() => onOpenEmailPreview({ id: log.complaint_id, body_html: log.body_html, title: log.subject })}
-                    className="btn-press bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 flex-shrink-0"
-                  >
-                    <span>ईमेल मजकूर पहा</span>
-                  </button>
-                </div>
-              ))
+                return (
+                  <div key={idx} className="p-4 hover:bg-slate-50 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <span className="font-mono text-xs font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded">
+                          #{log.complaint_id}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                          isDelivered 
+                            ? "text-emerald-700 bg-emerald-50 border-emerald-200" 
+                            : isBlocked 
+                            ? "text-amber-800 bg-amber-50 border-amber-300" 
+                            : "text-red-700 bg-red-50 border-red-200"
+                        }`}>
+                          {isDelivered 
+                            ? "ईमेल यशस्वीरीत्या पाठवला (Delivered)" 
+                            : isBlocked 
+                            ? "Render पोर्ट ५८७ ब्लॉक (Free Tier Egress Policy)" 
+                            : `पाठवणे अयशस्वी (${log.status?.slice(0, 30)})`}
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          {log.created_at}
+                        </span>
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                        {log.subject}
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        प्राप्तकर्ता: <strong>{log.recipient}</strong>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end">
+                      <button
+                        onClick={() => handleResendEmail(log.complaint_id)}
+                        disabled={resendingId === log.complaint_id}
+                        className="btn-press bg-slate-900 hover:bg-slate-800 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5"
+                      >
+                        <RotateCw className={`w-3 h-3 ${resendingId === log.complaint_id ? "animate-spin" : ""}`} />
+                        <span>{resendingId === log.complaint_id ? "पाठवत आहे..." : "पुन्हा पाठवा"}</span>
+                      </button>
+
+                      <button
+                        onClick={() => onOpenEmailPreview({ id: log.complaint_id, body_html: log.body_html, title: log.subject })}
+                        className="btn-press bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5"
+                      >
+                        <span>ईमेल मजकूर पहा</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

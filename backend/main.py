@@ -356,6 +356,17 @@ def get_smtp_logs():
     logs = fetch_recent_smtp_logs(50)
     return {"logs": logs}
 
+@app.post("/api/complaints/{complaint_id}/resend-email")
+def resend_complaint_email(complaint_id: str):
+    complaint = get_complaint_by_id(complaint_id)
+    if not complaint:
+        raise HTTPException(status_code=404, detail="तक्रार सापडली नाही")
+    result = send_complaint_email(complaint)
+    return {
+        "success": "DELIVERED" in result["status"],
+        "delivery": result
+    }
+
 # ----------------- Static SPA Frontend Fallback -----------------
 @app.get("/{full_path:path}")
 def serve_spa(full_path: str):

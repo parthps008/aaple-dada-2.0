@@ -25,6 +25,10 @@ class Settings:
     SMTP_FROM_NAME: str = "आपला दादा जनसंपर्क कक्ष (विटा-खानापूर)"
     OFFICE_NOTIFICATION_EMAIL: str = os.getenv("OFFICE_NOTIFICATION_EMAIL", "office.vaibhavdada@gmail.com")
     
+    # HTTP Email API Configuration (Bypasses Render Free Tier egress block on port 587)
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    BREVO_API_KEY: str = os.getenv("BREVO_API_KEY", "")
+    
     # Render & Deployment Server Settings
     PORT: int = int(os.getenv("PORT", "8000"))
     HOST: str = os.getenv("HOST", "0.0.0.0")

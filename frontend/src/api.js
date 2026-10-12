@@ -79,3 +79,12 @@ export async function fetchSmtpLogsApi() {
   if (!res.ok) throw new Error("ईमेल लॉग लोड होऊ शकले नाहीत");
   return data;
 }
+
+export async function resendComplaintEmailApi(complaintId) {
+  const res = await fetch(`${API_BASE}/complaints/${complaintId}/resend-email`, {
+    method: "POST"
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "ईमेल पाठवण्यात अडचण आली");
+  return data;
+}
