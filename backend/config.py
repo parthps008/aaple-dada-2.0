@@ -28,6 +28,7 @@ class Settings:
     # Render & Deployment Server Settings
     PORT: int = int(os.getenv("PORT", "8000"))
     HOST: str = os.getenv("HOST", "0.0.0.0")
+    BASE_URL: str = os.getenv("PORTAL_URL", os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000"))
 
     # Storage Paths
     BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

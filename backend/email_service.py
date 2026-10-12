@@ -89,7 +89,7 @@ def generate_complaint_email_html(complaint_data: dict) -> str:
 
             <div class="btn-container">
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">ही तक्रार तपासून संबंधित विभागाकडून काम पूर्ण झाल्यावर पोर्टलवर 'निकाली काढली (Done)' अशी नोंद करावी.</p>
-                <a href="http://localhost:8000" class="action-btn">प्रशासकीय पोर्टलवर तक्रार पहा व निकाली काढा</a>
+                <a href="{settings.BASE_URL}" class="action-btn">प्रशासकीय पोर्टलवर तक्रार पहा व निकाली काढा</a>
             </div>
         </div>
         

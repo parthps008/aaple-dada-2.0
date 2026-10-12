@@ -79,7 +79,7 @@ export default function AdminDashboard({ onOpenEmailPreview }) {
 
   const handleOpenEdit = (comp) => {
     setEditingComplaint(comp);
-    setNewStatus(comp.status === "निकाली काढली" ? "निकाली काढली" : "निकाली काढली");
+    setNewStatus(comp.status === "प्रलंबित" ? "निकाली काढली" : (comp.status || "निकाली काढली"));
     setNewRemarks(comp.admin_remarks || "मा. वैभव दादांच्या सूचनेनुसार प्रत्यक्ष कार्यवाही पूर्ण झाली असून तक्रार निकाली काढण्यात आली आहे.");
     setActionSuccessMsg("");
   };

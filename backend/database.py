@@ -331,14 +331,16 @@ def list_complaints_filtered(
                     query = query.where("citizen_phone", "==", citizen_phone)
                 elif user_id:
                     query = query.where("user_id", "==", str(user_id))
-            if status and status != "सर्व":
-                query = query.where("status", "==", status)
-            if category and category != "सर्व":
-                query = query.where("category", "==", category)
-
+            
             docs = query.stream()
             results = [d.to_dict() for d in docs]
             results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+            # In-memory filtering avoids requiring Firestore composite indexes
+            if status and status != "सर्व":
+                results = [r for r in results if r.get("status") == status]
+            if category and category != "सर्व":
+                results = [r for r in results if r.get("category") == category]
             
             if search:
                 s = search.lower()
@@ -352,8 +354,8 @@ def list_complaints_filtered(
                 ]
             if results or not all_records:
                 return results
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[Firestore list_complaints_filtered error]: {e}")
 
     conn = get_sqlite_conn()
     cursor = conn.cursor()
@@ -390,6 +392,7 @@ def list_complaints_filtered(
 def update_complaint_record(complaint_id: str, status: str, admin_remarks: str) -> Optional[Dict[str, Any]]:
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     resolved_at = now_str if status == "निकाली काढली" else None
+    firestore_updated = None
 
     # Update in Firebase
     if is_firebase_active and firestore_db:
@@ -405,28 +408,66 @@ def update_complaint_record(complaint_id: str, status: str, admin_remarks: str) 
                 if resolved_at:
                     update_data["resolved_at"] = resolved_at
                 doc_ref.update(update_data)
-        except Exception:
-            pass
+                firestore_updated = doc.to_dict()
+                firestore_updated.update(update_data)
+        except Exception as e:
+            print(f"[Firebase update complaint error]: {e}")
 
-    # Update in SQLite
-    conn = get_sqlite_conn()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM complaints WHERE id = ?", (complaint_id,))
-    if not cursor.fetchone():
-        conn.close()
-        return None
+    # Update or sync in SQLite
+    try:
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM complaints WHERE id = ?", (complaint_id,))
+        sq_row = cursor.fetchone()
 
-    cursor.execute("""
-    UPDATE complaints 
-    SET status = ?, admin_remarks = ?, updated_at = ?, resolved_at = COALESCE(?, resolved_at)
-    WHERE id = ?
-    """, (status, admin_remarks, now_str, resolved_at, complaint_id))
-    conn.commit()
-
-    cursor.execute("SELECT * FROM complaints WHERE id = ?", (complaint_id,))
-    updated_row = cursor.fetchone()
-    conn.close()
-    return dict(updated_row) if updated_row else None
+        if sq_row:
+            cursor.execute("""
+            UPDATE complaints 
+            SET status = ?, admin_remarks = ?, updated_at = ?, resolved_at = COALESCE(?, resolved_at)
+            WHERE id = ?
+            """, (status, admin_remarks, now_str, resolved_at, complaint_id))
+            conn.commit()
+            cursor.execute("SELECT * FROM complaints WHERE id = ?", (complaint_id,))
+            updated_row = dict(cursor.fetchone())
+            conn.close()
+            return firestore_updated or updated_row
+        elif firestore_updated:
+            cursor.execute("""
+            INSERT INTO complaints (
+                id, user_id, citizen_name, citizen_phone, citizen_email, category, sub_category,
+                ward_village, address, title, description, priority, photo_url, status,
+                admin_remarks, email_status, created_at, updated_at, resolved_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                firestore_updated["id"],
+                str(firestore_updated.get("user_id", "")),
+                firestore_updated.get("citizen_name", ""),
+                firestore_updated.get("citizen_phone", ""),
+                firestore_updated.get("citizen_email", ""),
+                firestore_updated.get("category", ""),
+                firestore_updated.get("sub_category", ""),
+                firestore_updated.get("ward_village", ""),
+                firestore_updated.get("address", ""),
+                firestore_updated.get("title", ""),
+                firestore_updated.get("description", ""),
+                firestore_updated.get("priority", "सर्वसाधारण"),
+                firestore_updated.get("photo_url", ""),
+                firestore_updated.get("status", "प्रलंबित"),
+                firestore_updated.get("admin_remarks", ""),
+                firestore_updated.get("email_status", "pending"),
+                firestore_updated.get("created_at", now_str),
+                firestore_updated.get("updated_at", now_str),
+                firestore_updated.get("resolved_at")
+            ))
+            conn.commit()
+            conn.close()
+            return firestore_updated
+        else:
+            conn.close()
+            return None
+    except Exception as e:
+        print(f"[SQLite update complaint error]: {e}")
+        return firestore_updated
 
 def get_stats_summary() -> Dict[str, Any]:
     if is_firebase_active and firestore_db:
