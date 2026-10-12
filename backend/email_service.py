@@ -122,7 +122,7 @@ def send_complaint_email(complaint_data: dict) -> dict:
                     "Content-Type": "application/json"
                 },
                 json={
-                    "from": "आपला दादा जनसंपर्क कक्ष <onboarding@resend.dev>",
+                    "from": "Aapla Dada Office <onboarding@resend.dev>",
                     "to": [recipient],
                     "subject": subject,
                     "html": body_html

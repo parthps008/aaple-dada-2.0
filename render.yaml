@@ -27,3 +27,5 @@ services:
         value: "आपला दादा जनसंपर्क कक्ष (विटा-खानापूर)"
       - key: OFFICE_NOTIFICATION_EMAIL
         value: sagareparth@gmail.com
+      - key: RESEND_API_KEY
+        sync: false
